@@ -1,10 +1,21 @@
---[[ credits:
-    https://www.unknowncheats.me/wiki/Counter_Strike_Global_Offensive:Proper_auto-strafer
+--[[ 
+    Better Autostrafer 1.0.1 by Michtar
+    Forum Link: https://aimware.net/forum/thread/176961
+    Credits: https://www.unknowncheats.me/wiki/Counter_Strike_Global_Offensive:Proper_auto-strafer
 ]]
 
-local FL_ONGROUND = bit.lshift(1, 0)
-local MOVETYPE_NOCLIP = 8
-local MOVETYPE_LADDER = 9
+local BUTTONS = {
+    IN_SPEED = bit.lshift(1, 16)
+}
+
+local FLAGS = {
+    ONGROUND = bit.lshift(1, 0)
+}
+
+local MOVETYPE = {
+    NOCLIP = 8,
+    LADDER = 9,
+}
 
 local tblOriginalElements = {
     AirStrafe = gui.Reference("Misc", "Movement", "Auto Strafer", "Air Strafe"),
@@ -16,19 +27,24 @@ local tblOriginalElements = {
 }
 
 local ui_reference = gui.Reference("Misc", "Movement", "Auto Strafer")
-local ui_strafermode = gui.Combobox(ui_reference, "lua.mode", "Auto Strafer Mode", "Legit (Mouse)", "Rage")
+local ui_disable_on_shift = gui.Checkbox(ui_reference, "lua.disable_on_shift", "Disable On Shift", true)
+ui_disable_on_shift:SetDescription("Disable autostrafer while shifting.")
+local ui_strafermode = gui.Combobox(ui_reference, "lua.mode", "Auto Strafer Mode", "Legit (Mouse)", "Rage (Directional)")
+local ui_minimum_velocity = gui.Slider(ui_reference, "lua.minimum_speed", "Minimum Velocity", 5, 0, 50)
+ui_minimum_velocity:SetDescription("Disable autostrafer while below a certain speed.")
 
-local vecAnglesPrevious = EulerAngles(0, 0, 0)
+local vecPreviousLocalAngles = EulerAngles(0, 0, 0)
 local function LegitStrafer(pUserCmd, vecVelocity)
-    local vecAngles = engine.GetViewAngles()
-    if (vecAnglesPrevious == EulerAngles(0, 0, 0)) then vecAnglesPrevious = vecAngles end
-    local vecAngleDifference = vecAngles - vecAnglesPrevious
-    if (vecAnglesPrevious ~= vecAngles) then vecAnglesPrevious = vecAngles end
+    local vecLocalAngles = engine.GetViewAngles()
+    vecLocalAngles.z = 0
+
+    if (vecPreviousLocalAngles == EulerAngles(0, 0, 0)) then vecPreviousLocalAngles = vecLocalAngles end
+    local vecAngleDifference = vecLocalAngles - vecPreviousLocalAngles
+    if (vecPreviousLocalAngles ~= vecLocalAngles) then vecPreviousLocalAngles = vecLocalAngles end
     if vecAngleDifference.y == 0 then return end
 
-    local flVelocityAngle = EulerAngles(0, math.deg(math.atan2(vecVelocity.y, vecVelocity.x) - math.rad(vecAngles.y)),0 )
+    local flVelocityAngle = EulerAngles(0, math.deg(math.atan2(vecVelocity.y, vecVelocity.x) - math.rad(vecLocalAngles.y)),0 )
     flVelocityAngle:Normalize()
-    print(flVelocityAngle.y)
 
     local bForward = flVelocityAngle.y < 90 and flVelocityAngle.y > -90
     if (bForward) then
@@ -42,6 +58,8 @@ end
 
 local function RageStrafer(pUserCmd, vecVelocity)
     local flSpeed = vecVelocity:Length2D()
+    if flSpeed < ui_minimum_velocity:GetValue() then return end
+
     local function CalculateDelta()
         local flAirAccelerate = client.GetConVar("sv_airaccelerate")
         local flMaxSpeed = 300
@@ -58,6 +76,7 @@ local function RageStrafer(pUserCmd, vecVelocity)
     if not flDeltaAir then return end
 
     local vecLocalAngles = engine.GetViewAngles()
+    vecLocalAngles.z = 0
     local flVelocityAngle = math.atan2(vecVelocity.y, vecVelocity.x) - math.rad(vecLocalAngles.y)
     local flBestAngle = math.atan2(pUserCmd:GetSideMove(), pUserCmd:GetForwardMove())
     local function DeltaAngle(first, second)
@@ -91,13 +110,19 @@ callbacks.Register("CreateMove", function (pUserCmd)
     local m_MoveType = pLocalPawn:GetPropInt("m_MoveType") 
     local m_fFlags = pLocalPawn:GetPropInt("m_fFlags") 
 
-    if not gui.GetValue("misc.strafe.enable") or not pLocalPawn:IsAlive() or (gui.GetValue("misc.strafe.disablenade") and pLocalPawn:GetWeaponType() == 9) or m_MoveType == MOVETYPE_LADDER or m_MoveType == MOVETYPE_NOCLIP or bit.band(m_fFlags, FL_ONGROUND) ~= 0 then 
-        vecAnglesPrevious = EulerAngles(0, 0, 0)
+    if not gui.GetValue("misc.strafe.enable")
+        or not pLocalPawn:IsAlive()
+        or (gui.GetValue("misc.strafe.disablenade") and pLocalPawn:GetWeaponType() == 9)
+        or m_MoveType == MOVETYPE.LADDER or m_MoveType == MOVETYPE.NOCLIP
+        or bit.band(m_fFlags, FLAGS.ONGROUND) ~= 0 
+        or (ui_disable_on_shift:GetValue() and bit.band(pUserCmd:GetButtons(), BUTTONS.IN_SPEED) ~= 0) 
+    then
+        vecPreviousLocalAngles = EulerAngles(0, 0, 0)
         return 
     end
 
     tblOriginalElements.AirStrafe:SetValue(false)
-
+    
     local vecVelocity = pLocalPawn:GetPropVector("m_vecVelocity")
     local iStraferMode = ui_strafermode:GetValue()
     if iStraferMode == 0 then
