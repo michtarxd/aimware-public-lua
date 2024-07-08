@@ -1,5 +1,6 @@
 --[[ 
     Spectator list autohide 1.0.0 by Michtar
+    Forum Link: https://aimware.net/forum/thread/177088
 ]]
 
 local function GetSpectators(pTarget)
