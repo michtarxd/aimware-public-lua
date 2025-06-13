@@ -99,6 +99,12 @@ local function RageStrafer(pUserCmd, vecVelocity)
     local flDeltaAngle = DeltaAngle(flVelocityAngle, flBestAngle)
     local flFinalMove = flDeltaAngle < 0.0 and flVelocityAngle + flDeltaAir or flVelocityAngle - flDeltaAir
 
+    if(client.GetConVar("sv_quantize_movement_input"))then
+        local vecCurrentAngles = pUserCmd:GetViewAngles();
+        vecCurrentAngles.y = math.fmod(flFinalMove * 180 / math.pi, 45) + vecLocalAngles.y;
+        pUserCmd:SetViewAngles(vecCurrentAngles);
+    end
+
     pUserCmd:SetForwardMove(math.cos(flFinalMove))
     pUserCmd:SetSideMove(math.sin(flFinalMove))
 end
